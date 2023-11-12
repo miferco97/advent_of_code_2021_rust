@@ -9,7 +9,7 @@ fn count_increasing_measures(measures: &Vec<i32>) -> i32 {
             n_measures_increasing += 1;
         }
     }
-    return n_measures_increasing;
+    n_measures_increasing
 }
 
 fn count_increasing_measures_with_sliding_window(measures: &Vec<i32>, window_size: usize) -> i32 {
@@ -22,19 +22,21 @@ fn count_increasing_measures_with_sliding_window(measures: &Vec<i32>, window_siz
         sliding_window_values.push(val);
     }
 
-    return count_increasing_measures(&sliding_window_values);
+    count_increasing_measures(&sliding_window_values)
 }
 
 fn read_filepath(filepath: &String) -> Vec<i32> {
     let mut numbers: Vec<i32> = Vec::new();
+    numbers.push(0);
     // read file and push to numbers
     let content = fs::read_to_string(filepath).expect("file was not able to be open");
     let items: Vec<&str> = content.split("\n").collect();
     for item in items {
         numbers.push(item.parse::<i32>().unwrap())
     }
-    return numbers;
+    numbers
 }
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
@@ -49,6 +51,7 @@ fn main() {
         n_measures_increasing
     );
     let window_size: usize = 3;
+
     let n_measures_increasing_sliding_window: i32 =
         count_increasing_measures_with_sliding_window(&numbers, window_size);
     println!(
