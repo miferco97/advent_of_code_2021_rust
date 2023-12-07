@@ -1,5 +1,6 @@
 use std::fs;
 // use std::ops::IndexMut;
+use inline_colorization::*;
 use std::ops::{Index, IndexMut};
 use std::{env, process::exit};
 
@@ -10,15 +11,12 @@ struct Matrix {
 }
 
 impl Matrix {
-    fn new(rows: u32, cols: u32) -> Matrix {
-        Matrix {
-            data: Vec::with_capacity((rows * cols) as usize),
-            rows,
-            cols,
-        }
+    fn new(rows: u32, cols: u32, value: u32) -> Matrix {
+        let data: Vec<u32> = vec![value; (rows * cols) as usize];
+        Matrix { data, rows, cols }
     }
     fn at(&self, i: u32, j: u32) -> u32 {
-        let index = i*self.cols + j;
+        let index = i * self.cols + j;
         self.data[index as usize]
     }
     fn new_from_str(str: &str) -> Matrix {
@@ -46,35 +44,88 @@ impl Matrix {
         }
     }
 
-    fn win(&self)->bool{
-        // check by rows 
-        for i in 0..self.rows{
-            let mut sum:u32 = 0;
-            for j in 0..self.cols{
-                sum += self.at(i,j);
+    fn win(&self) -> bool {
+        // check by rows
+        for i in 0..self.rows {
+            let mut sum: u32 = 0;
+            for j in 0..self.cols {
+                sum += self.at(i, j);
             }
-            if sum == 0 {return  true;}
+            if sum == 0 {
+                return true;
+            }
         }
-        // check by cols 
-        for j in 0..self.cols{
-            let mut sum:u32 = 0;
-            for i in 0..self.rows{
-                sum += self.at(i,j);
+        // check by cols
+        for j in 0..self.cols {
+            let mut sum: u32 = 0;
+            for i in 0..self.rows {
+                sum += self.at(i, j);
             }
-            if sum == 0 {return  true;}
+            if sum == 0 {
+                return true;
+            }
         }
         false
-
     }
-    fn check_number(&mut self, number:u32)->bool{
-        if let Some(value) = self.data.iter().find(|x| **x == number).as_mut(){
-            *value=&0_u32;
+}
+
+struct BingoCard {
+    card: Matrix,
+    checked_numbers: Matrix,
+    last_checked_number: u32,
+}
+
+impl BingoCard {
+    fn new_from_str(str: &str) -> BingoCard {
+        let card = Matrix::new_from_str(str);
+        let checked_numbers = Matrix::new(card.rows, card.cols, 1);
+        BingoCard {
+            card,
+            checked_numbers,
+            last_checked_number: 0,
         }
-        self.win()
+    }
+    fn check_number(&mut self, number: u32) -> bool {
+        self.last_checked_number = number;
+        if let Some(index) = self.card.data.iter().position(|x| x == &number) {
+            self.checked_numbers.data[index as usize] = 0;
+        }
+        self.checked_numbers.win()
+    }
+
+    fn compute_score(&self) -> u32 {
+        let mut score: u32 = 0;
+        for i in 0..self.checked_numbers.data.len() {
+            if self.checked_numbers[i] != 0 {
+                score += self.card[i];
+            }
+        }
+        score * self.last_checked_number
     }
 }
 
 use std::fmt;
+
+impl fmt::Display for BingoCard {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "\n")?;
+        for i in 0..self.checked_numbers.rows {
+            for j in 0..self.checked_numbers.cols {
+                if self.checked_numbers.at(i, j) == 0 {
+                    write!(
+                        f,
+                        "{} , ",
+                        format!("{color_red}{:2}{color_reset}", self.card.at(i, j))
+                    )?;
+                } else {
+                    write!(f, "{:2} , ", self.card.at(i, j))?;
+                }
+            }
+            write!(f, "\n")?;
+        }
+        std::fmt::Result::Ok(())
+    }
+}
 
 impl fmt::Display for Matrix {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -102,10 +153,6 @@ impl IndexMut<usize> for Matrix {
     }
 }
 
-fn read_matrices(str: &str) -> Vec<Matrix> {
-    Vec::new()
-}
-
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
@@ -121,21 +168,27 @@ fn main() {
         .map(|x| x.parse::<u32>().unwrap())
         .collect();
 
-    let mut matrices : Vec<Matrix> = Vec::new();
-    for bingo in bingos{
-        let matrix = Matrix::new_from_str(bingo.trim());
-        println!("matrix : {}", matrix);
+    let mut matrices: Vec<BingoCard> = Vec::new();
+    for bingo in bingos {
+        let matrix = BingoCard::new_from_str(bingo.trim());
         matrices.push(matrix);
     }
 
-    for number in &numbers{
-        println!("Matrix[0] {}\n,{}",matrices[0],number);
-        for matrix in &mut matrices{
-            if matrix.check_number(*number){
-                println!("Matrix {}\n, won with number {}",matrix,number);
+    let mut n_winners = 0;
+    let max_winners = matrices.len();
+    'outer: for number in &numbers {
+        for matrix in &mut matrices {
+            if !matrix.checked_numbers.win() && matrix.check_number(*number) {
+                n_winners += 1;
+                if n_winners == 1 {
+                    println!("Part1 Score : {}", matrix.compute_score());
+                }
+                if n_winners == max_winners {
+                    // println!("final number : {}", number);
+                    println!("Part2 Score : {}", matrix.compute_score());
+                    break 'outer;
+                }
             }
         }
     }
-    
-    // println!("File content: {}", content);
 }
